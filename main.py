@@ -41,7 +41,7 @@ def copy_file_to_folder(file, dist_dir, name=None, remove=True):
         info('Removed old file')
 
 
-def check_file(file):
+def check_file(file, without_suggestions):
     global faces_names, faces_encodings
     info(f'Start checking file: {file}')
     unknown_image = face_recognition.load_image_file(file)
@@ -56,25 +56,31 @@ def check_file(file):
     for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
         matches = face_recognition.compare_faces(faces_encodings, face_encoding)
         face_distances = face_recognition.face_distance(faces_encodings, face_encoding)
-        best_match_index = np.argmin(face_distances)
+        try:
+            best_match_index = np.argmin(face_distances)
+        except Exception as e:
+            print("[ERROR] Can't check file. Skipping...")
+            print(f"[LOG] {e}")
+            return
         if matches[best_match_index]:
             info('Have a match')
             name = faces_names[best_match_index]
             copy_file_to_folder(file, 'checked', name=name, remove=False)
         else:
             info('Unknown face founded!')
-            pil_image = Image.fromarray(unknown_image)
-            draw = ImageDraw.Draw(pil_image)
-            draw.rectangle(((left, top), (right, bottom)), outline=(0, 0, 255))
-            time.sleep(1)
-            pil_image.show()
-            answer = input('Did you know this face? Y/n (Y is default): ')
-            if answer == 'Y' or answer == 'y' or answer is None or answer == '':
-                name = input('Write the name: ')
-                copy_file_to_folder(file, 'faces', name=name, remove=False)
-                init()
-            if answer == 'N' or answer == 'n':
-                copy_file_to_folder(file, 'founded_unknown_faces', remove=False)
+            if not without_suggestions:
+                pil_image = Image.fromarray(unknown_image)
+                draw = ImageDraw.Draw(pil_image)
+                draw.rectangle(((left, top), (right, bottom)), outline=(0, 0, 255))
+                time.sleep(1)
+                pil_image.show()
+                answer = input('Did you know this face? Y/n (Y is default): ')
+                if answer == 'Y' or answer == 'y' or answer is None or answer == '':
+                    name = input('Write the name: ')
+                    copy_file_to_folder(file, 'faces', name=name, remove=False)
+                    init()
+                if answer == 'N' or answer == 'n':
+                    copy_file_to_folder(file, 'founded_unknown_faces', remove=False)
 
     if os.path.isfile(file):
         os.remove(file)
@@ -105,7 +111,7 @@ def my_identity():
     info(f'Total files: {total_files}')
     for i, file in enumerate(all_files):
         info(f'Checkin {i} in {total_files}. {total_files - i} files await.')
-        check_file(file)
+        check_file(file, True)
         print('=' * 100)
     info('PROGRESS DONE')
 
